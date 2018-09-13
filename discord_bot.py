@@ -137,7 +137,7 @@ async def radius(ctx, system: str, radius: float, minRadius = 0.0):
     await bot.say(msg)
 
 def get_token():
-    with open('token.secret', 'r') as f:
+    with open('data/token.secret', 'r') as f:
         return f.readline().strip()
 
 bot.run(get_token())

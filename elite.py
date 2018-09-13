@@ -190,7 +190,7 @@ def get_system_info_for_display(name):
 def load_data():
     apiKeys.clear()
     cmdrNames.clear()
-    with open('ed_cmdr.csv', 'r') as f:
+    with open('data/ed_cmdr.csv', 'r') as f:
         for line in f:
             split = line.split(',')
             if (len(split) < 2 or len(split) > 3):
@@ -205,7 +205,7 @@ def load_data():
                     apiKeys[user] = key
     print('Loaded {0} commanders and {1} api keys'.format(len(cmdrNames), len(apiKeys)))
     pointsOfInterest.clear()
-    with open('ed_poi.csv', 'r') as f:
+    with open('data/ed_poi.csv', 'r') as f:
         for line in f:
             split = line.split(',')
             if (len(split) != 5):
@@ -222,14 +222,14 @@ def load_data():
     print('Loaded {0} points of interest.'.format(len(pointsOfInterest)))
 
 def save_data():
-    with open('ed_cmdr.csv', 'w') as f:
+    with open('data/ed_cmdr.csv', 'w') as f:
         for user, cmdr in cmdrNames.items():
             key = ''
             if user in apiKeys:
                 key = apiKeys[user]
             f.write('{0}, {1}, {2}\n'.format(user, cmdr, key))
     print('Saved {0} commanders and {1} api keys'.format(len(cmdrNames), len(apiKeys)))
-    with open('ed_poi.csv', 'w') as f:
+    with open('data/ed_poi.csv', 'w') as f:
         for name, poi in pointsOfInterest.items():
             f.write('{0}, {1}, {2}, {3}, {4}\n'
                 .format(poi.name, poi.system, poi.coords['x'], poi.coords['y'], poi.coords['z']))
