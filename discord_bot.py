@@ -136,6 +136,12 @@ async def radius(ctx, system: str, radius: float, minRadius = 0.0):
         msg = 'No systems in range'
     await bot.say(msg)
 
+@bot.command(pass_context = False)
+async def balance(name: str):
+    '''Gets credit balance of cmd name'''
+    cmdr = get_uid(name)
+    await bot.say(elite.get_credits(cmdr))
+
 def get_token():
     with open('data/token.secret', 'r') as f:
         return f.readline().strip()
