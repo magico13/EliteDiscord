@@ -381,4 +381,16 @@ def get_systems_in_radius(coords, radius, minRadius=0):
         'radius': radius
     }
     return get_edsm(api, endpoint, params)
-    
+
+def get_credits(cmdr):
+    '''Get the last recorded credits of a user'''
+    api = 'commander'
+    endpoint = 'get-credits'
+    response = get_edsm_with_cmdr(api, endpoint, cmdr)
+    if response and response['msgnum'] == 100:
+        name, known = get_cmdr(cmdr)
+        if not known:
+            name = 'Unidentified Thargoid'
+        return '{} has {:,} credits'.format(name, response['credits'][0]['balance'])
+    else:
+        return 'Could not find credits for "{0}".'.format(cmdr)
