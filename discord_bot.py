@@ -136,6 +136,7 @@ async def radius(ctx, system: str, radius: float, minRadius = 0.0):
         msg = 'No systems in range'
     await bot.say(msg)
 
+@bot.command()
 async def balance(name: str):
     '''Gets credit balance of cmd name'''
     cmdr = get_uid(name)

@@ -393,4 +393,4 @@ def get_credits(cmdr):
             name = 'Unidentified Thargoid'
         return '{} has {:,} credits'.format(name, response['credits'][0]['balance'])
     else:
-        return 'Could not find credits for this user.'
+        return 'Could not find credits for "{0}".'.format(cmdr)
