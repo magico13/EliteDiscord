@@ -136,11 +136,36 @@ async def radius(ctx, system: str, radius: float, minRadius = 0.0):
         msg = 'No systems in range'
     await bot.say(msg)
 
-@bot.command()
-async def balance(name: str):
-    '''Gets credit balance of cmd name'''
+@bot.command(pass_context=True)
+async def balance(ctx, name: str):
+    '''Gets credit balance of cmdr name'''
+    await bot.send_typing(ctx.message.channel)
     cmdr = get_uid(name)
-    await bot.say(elite.get_credits(cmdr))
+    credits = elite.get_credits(cmdr)
+    msg = '{0} '.format(name)
+    if credits and credits['msgnum'] == 100:
+        msg += 'has {:,} credits.'.format(credits['credits'][0]['balance'])
+    else:
+        msg += 'could not be found'
+    await bot.say(msg)
+
+@bot.command(pass_context=True)
+async def ranks(ctx, name: str):
+    '''Gets all ranks of cmdr name'''
+    await bot.send_typing(ctx.message.channel)
+    cmdr = get_uid(name)
+    ranks = elite.get_ranks(cmdr)
+    msg = '__{0}__\n'.format(name)
+    if ranks and ranks['msgnum'] == 100:
+        msg += '{0} : {1}\n'.format('Combat', ranks['ranksVerbose']['Combat'])
+        msg += '{0} : {1}\n'.format('Trade', ranks['ranksVerbose']['Trade'])
+        msg += '{0} : {1}\n'.format('Explore', ranks['ranksVerbose']['Explore'])
+        msg += '{0} : {1}\n'.format('CQC', ranks['ranksVerbose']['CQC'])
+        msg += '{0} : {1}\n'.format('Federation', ranks['ranksVerbose']['Federation'])
+        msg += '{0} : {1}\n'.format('Empire', ranks['ranksVerbose']['Empire'])
+    else:
+        msg += 'No ranks found'
+    await bot.say(msg)
 
 def get_token():
     with open('data/token.secret', 'r') as f:
