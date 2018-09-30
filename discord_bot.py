@@ -164,7 +164,62 @@ async def ranks(ctx, name: str):
         msg += '{0} : {1}\n'.format('Federation', ranks['ranksVerbose']['Federation'])
         msg += '{0} : {1}\n'.format('Empire', ranks['ranksVerbose']['Empire'])
     else:
-        msg += 'No ranks found'
+        msg = 'No ranks found for "{0}"'.format(name)
+    await bot.say(msg)
+
+@bot.command(pass_context=True)
+async def materials(ctx, name: str):
+    '''Gets all materials for the cmdr'''
+    await bot.send_typing(ctx.message.channel)
+    cmdr = get_uid(name)
+    materials = elite.get_materials(cmdr)
+    msg = '_{0} materials_\n'.format(name)
+    if materials and materials['msgnum'] == 100:
+        for mats in materials['materials']:
+            #only include materials which the cmdr has at least 1 of
+            if mats['qty'] > 0:
+                msg += '{0} : {1}\n'.format(mats['name'], mats['qty'])
+    else:
+        msg = 'No materials found for "{0}"'.format(name)
+    await bot.say(msg)
+
+@bot.command(pass_context=True)
+async def cargo(ctx, name: str):
+    '''Gets all cargo for the cmdr'''
+    await bot.send_typing(ctx.message.channel)
+    cmdr = get_uid(name)
+    cargo = elite.get_cargo(cmdr)
+    msg = '_{0} cargo_\n'.format(name)
+    cargoNum = 0
+    if cargo and cargo['msgnum'] == 100:
+        for item in cargo['cargo']:
+            #Only include cargo which the cmdr has at least 1 of
+            if item['qty'] > 0:
+                msg += '{0} : {1}\n'.format(item['name'], items['qty'])
+                cargoNum += 1
+    else:
+        msg = 'No cargo found for "{0}"'.format(name)
+        #set cargoNum to -1 so we don't print below
+        cargoNum = -1
+    
+    if cargoNum == 0:
+        msg += 'No cargo!'
+    await bot.say(msg)
+
+@bot.command(pass_context=True)
+async def data(ctx, name: str):
+    '''Gets all encoded data for the cmdr'''
+    await bot.send_typing(ctx.message.channel)
+    cmdr = get_uid(name)
+    encodedData = elite.get_encoded_data(cmdr)
+    msg = '_{0} encoded data_\n'.format(name)
+    if encodedData and encodedData['msgnum'] == 100:
+        for data in encodedData['data']:
+            #Only include encoded data which the cmdr has at least 1 of
+            if data['qty'] > 0:
+                msg += '{0} : {1}\n'.format(data['name'], data['qty'])
+    else:
+        msg = 'No encoded data found for "{0}"'.format(name)
     await bot.say(msg)
 
 def get_token():

@@ -393,3 +393,23 @@ def get_ranks(cmdr):
     api = 'commander'
     endpoint = 'get-ranks'
     return get_edsm_with_cmdr(api, endpoint, cmdr)
+
+def get_materials(cmdr):
+    '''Gets materials for a user'''
+    api = 'commander'
+    endpoint = 'get-materials'
+    return get_edsm_with_cmdr(api, endpoint, cmdr)
+
+def get_cargo(cmdr):
+    '''Gets cargo for a user'''
+    api = 'commander'
+    endpoint = 'get-materials'
+    params = {'type':'cargo'}
+    return get_edsm_with_cmdr(api, endpoint, cmdr, params)
+
+def get_encoded_data(cmdr):
+    '''Gets encoded data for a user'''
+    api = 'commander'
+    endpoint = 'get-materials'
+    params = {'type':'data'}
+    return get_edsm_with_cmdr(api, endpoint, cmdr, params)
