@@ -9,7 +9,7 @@ apiKeys = {}
 cmdrNames = {}
 pointsOfInterest = {}
 
-debug = True
+debug = False
 
 class PointOfInterest:
     def __init__(self, Name, SystemName, Coords):
@@ -51,6 +51,7 @@ def set_cmdr(user, cmdr, key=None):
     save_data()
 
 def get_cmdr(potential):
+    potential = potential.strip('@')
     cmdr = get_cmdr_for_user(potential)
     if cmdr:
         #in this case they passed a user
@@ -110,7 +111,7 @@ def friendly_get_coords(loc):
 
     #check if other is another cmdr
     cmdr2, known = get_cmdr(loc)
-    if not known:        
+    if not known:
         #Check if it's a system name then
         system = get_system_coordinates(loc)
         if system: 
@@ -147,6 +148,7 @@ def get_system_info_for_display(name):
     stationInfo = get_stations_in_system(systemName)
     trafficInfo = get_traffic_in_system(systemName)
     deathInfo = get_deaths_in_system(systemName)
+    scanInfo = get_system_value(systemName)
     
     msg += 'Information for {0}:\n'.format(systemName)
     if 'information' in systemInfo and systemInfo['information']: 
@@ -185,6 +187,13 @@ def get_system_info_for_display(name):
         dist = get_distance(systemInfo['coords'], {'x':0, 'y':0, 'z':0})
         dist = round(dist, 2)
         msg += 'Location: {0} LY from Sol {1}\n'.format(dist, systemInfo['coords'])
+
+    if scanInfo:
+        msg += 'Estimated value: {:,} credits ({:,} mapped)\n'.format(scanInfo['estimatedValue'], scanInfo['estimatedValueMapped'])
+        if 'valuableBodies' in scanInfo and len(scanInfo['valuableBodies']) > 0:
+            msg += '{0} valuable bodies:\n'.format(len(scanInfo['valuableBodies']))
+            for body in scanInfo['valuableBodies']:
+                msg += '{0} ({2}ls): {1:,} credits\n'.format(body['bodyName'], body['valueMax'], body['distance'])
     return msg
     
 def load_data():
@@ -230,7 +239,7 @@ def save_data():
             f.write('{0}, {1}, {2}\n'.format(user, cmdr, key))
     print('Saved {0} commanders and {1} api keys'.format(len(cmdrNames), len(apiKeys)))
     with open('data/ed_poi.csv', 'w') as f:
-        for name, poi in pointsOfInterest.items():
+        for _, poi in pointsOfInterest.items():
             f.write('{0}, {1}, {2}, {3}, {4}\n'
                 .format(poi.name, poi.system, poi.coords['x'], poi.coords['y'], poi.coords['z']))
     print('Saved {0} points of interest'.format(len(pointsOfInterest)))
@@ -245,8 +254,15 @@ def get_edsm(api, endpoint, params=None):
     if (len(params) > 0):
         url += '?'
         for p, v in params.items():
-            fragment = str(p) + '=' + str(v)
-            fragment = html.escape(fragment)
+            if isinstance(v, list):
+                fragment = ''
+                for val in v:
+                    mini = '{0}={1}'.format(p, val)
+                    fragment += html.escape(mini) + '&'
+                fragment = fragment[:-1]
+            else:
+                fragment = '{0}={1}'.format(p, v)
+                fragment = html.escape(fragment)
             url += fragment + '&'
     url = url[:-1]
     url = url.replace(' ', '%20')
@@ -258,7 +274,7 @@ def get_edsm(api, endpoint, params=None):
     return response
 
 def get_edsm_with_cmdr(api, endpoint, potential, params=None):
-    cmdr, known = get_cmdr(potential)
+    cmdr, _ = get_cmdr(potential)
     print('cmdr: '+cmdr)
     if not cmdr: return 'Could not find commander for user "{0}"'.format(user)
     key = get_cmdr_api_key(cmdr)
@@ -304,6 +320,24 @@ def get_system_coordinates(systemName):
         if 'msg' in system: print(system['msg'])
         return None
 
+def get_coordinates_of_systems(systems):
+    '''Returns a list of coordinates for the given list of system names'''
+    api = None
+    endpoint = 'systems'
+    params = {
+        'showCoordinates':1
+    }
+    if len(systems) == 1: params['systemName'] = systems[0]
+    else:
+        params['systemName[]'] = systems
+
+    systemResults = get_edsm(api, endpoint, params)
+    if len(systemResults) > 0:
+        return systemResults
+    else:
+        print('Could not find coordinates for {0} provided systems'.format(len(systems)))
+        return None
+
 def get_system_info(systemName):
     api = None
     endpoint = 'system'
@@ -322,6 +356,18 @@ def get_system_info(systemName):
         if 'msg' in system: print(system['msg'])
         return None
         
+def get_system_value(systemName):
+    '''Gets the estimated scan value of the system and a list of valuable bodies'''
+    api = 'system'
+    endpoint = 'estimated-value'
+    params = {'systemName': systemName}
+    values = get_edsm(api, endpoint, params)
+    if values:
+        return values
+    else:
+        print('Could not find scan data for system {0}'.format(systemName))
+        return None
+
 def get_bodies_in_system(systemName):
     api = 'system'
     endpoint = 'bodies'
@@ -412,4 +458,13 @@ def get_encoded_data(cmdr):
     api = 'commander'
     endpoint = 'get-materials'
     params = {'type':'data'}
+    return get_edsm_with_cmdr(api, endpoint, cmdr, params)
+
+def get_cmdr_flight_log(cmdr, startDate = None, endDate = None):
+    '''Gets the flight log for a user'''
+    api = 'logs'
+    endpoint = 'get-logs'
+    params = {'showId':'0'}
+    if startDate: params['startDateTime'] = startDate
+    if endDate: params['endDateTime'] = endDate
     return get_edsm_with_cmdr(api, endpoint, cmdr, params)

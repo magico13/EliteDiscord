@@ -4,6 +4,7 @@ import random
 import re
 
 import elite
+import elite_mapper
 
 description = '''Elite:Dangerous connector bot.'''
 
@@ -157,12 +158,12 @@ async def ranks(ctx, name: str):
     ranks = elite.get_ranks(cmdr)
     msg = '__{0}__\n'.format(name)
     if ranks and ranks['msgnum'] == 100:
-        msg += '{0} : {1}\n'.format('Combat', ranks['ranksVerbose']['Combat'])
-        msg += '{0} : {1}\n'.format('Trade', ranks['ranksVerbose']['Trade'])
-        msg += '{0} : {1}\n'.format('Explore', ranks['ranksVerbose']['Explore'])
-        msg += '{0} : {1}\n'.format('CQC', ranks['ranksVerbose']['CQC'])
-        msg += '{0} : {1}\n'.format('Federation', ranks['ranksVerbose']['Federation'])
-        msg += '{0} : {1}\n'.format('Empire', ranks['ranksVerbose']['Empire'])
+        msg += '{0} : {1} ({2}%)\n'.format('Combat', ranks['ranksVerbose']['Combat'], ranks['progress']['Combat'])
+        msg += '{0} : {1} ({2}%)\n'.format('Trade', ranks['ranksVerbose']['Trade'], ranks['progress']['Trade'])
+        msg += '{0} : {1} ({2}%)\n'.format('Explore', ranks['ranksVerbose']['Explore'], ranks['progress']['Explore'])
+        msg += '{0} : {1} ({2}%)\n'.format('CQC', ranks['ranksVerbose']['CQC'], ranks['progress']['CQC'])
+        msg += '{0} : {1} ({2}%)\n'.format('Federation', ranks['ranksVerbose']['Federation'], ranks['progress']['Federation'])
+        msg += '{0} : {1} ({2}%)\n'.format('Empire', ranks['ranksVerbose']['Empire'], ranks['progress']['Empire'])
     else:
         msg = 'No ranks found for "{0}"'.format(name)
     await bot.say(msg)
@@ -222,6 +223,14 @@ async def data(ctx, name: str):
         msg = 'No encoded data found for "{0}"'.format(name)
     await bot.say(msg)
 
+@bot.command(pass_context=True)
+async def map(ctx):
+	'''Returns a map of the requested items'''
+	await bot.type()
+	elite_mapper.parse_and_plot(ctx.message.content)
+	with open('data/fig.png', 'rb') as f:
+		await bot.upload(f)
+	
 def get_token():
     with open('data/token.secret', 'r') as f:
         return f.readline().strip()
