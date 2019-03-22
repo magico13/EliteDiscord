@@ -9,6 +9,8 @@ apiKeys = {}
 cmdrNames = {}
 pointsOfInterest = {}
 
+flightLogCache = {}
+
 debug = False
 
 class PointOfInterest:
@@ -275,7 +277,7 @@ def get_edsm(api, endpoint, params=None):
 
 def get_edsm_with_cmdr(api, endpoint, potential, params=None):
     cmdr, _ = get_cmdr(potential)
-    print('cmdr: '+cmdr)
+    if debug: print('cmdr: '+cmdr)
     if not cmdr: return 'Could not find commander for user "{0}"'.format(user)
     key = get_cmdr_api_key(cmdr)
     if not params: params = {}
@@ -327,17 +329,23 @@ def get_coordinates_of_systems(systems):
     params = {
         'showCoordinates':1
     }
-    if len(systems) == 1: params['systemName'] = systems[0]
-    else:
-        params['systemName[]'] = systems
+    systemResults = []
+    #do this in groups of 100
+    for i in range(0, len(systems), 100):
+        subsystems = systems[i:i+100]
+        if len(subsystems) == 1: params['systemName'] = systems[0]
+        else:
+            params['systemName[]'] = subsystems
 
-    systemResults = get_edsm(api, endpoint, params)
+        results = get_edsm(api, endpoint, params)
+        if len(results) > 0:
+            systemResults += results
     if len(systemResults) > 0:
         return systemResults
     else:
         print('Could not find coordinates for {0} provided systems'.format(len(systems)))
         return None
-
+        
 def get_system_info(systemName):
     api = None
     endpoint = 'system'
@@ -462,9 +470,19 @@ def get_encoded_data(cmdr):
 
 def get_cmdr_flight_log(cmdr, startDate = None, endDate = None):
     '''Gets the flight log for a user'''
+    latest = get_cmdr_system(cmdr)
+    if not latest or not 'system' in latest: return None
+    key = cmdr+latest['system']
+    if not startDate and not endDate:
+        if key in flightLogCache:
+            print('Using cached flight data for CMDR {}'.format(cmdr))
+            return flightLogCache[key]
     api = 'logs'
     endpoint = 'get-logs'
     params = {'showId':'0'}
     if startDate: params['startDateTime'] = startDate
     if endDate: params['endDateTime'] = endDate
-    return get_edsm_with_cmdr(api, endpoint, cmdr, params)
+    results = get_edsm_with_cmdr(api, endpoint, cmdr, params)
+    if not startDate and not endDate:
+        flightLogCache[key] = results
+    return results
