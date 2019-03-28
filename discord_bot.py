@@ -231,6 +231,42 @@ async def map(ctx):
 	with open('data/fig.png', 'rb') as f:
 		await bot.upload(f)
 	
+@bot.command()
+async def rate(name: str):
+    '''Gets the jump rate, average jump distance, and ly per hour for a commander'''
+    cmdr = get_uid(name)
+    try:
+        rate = elite.get_jump_rate(name)
+        dist = elite.get_average_jump_distance(name)
+        distRate = rate*dist
+        msg = f'{name} jumps {rate:0.2f} times per hour at an average jump distance of {dist:0.2f} ly for a rate of {distRate:0.2f} ly per hour.'
+    except:
+        msg = f'Could not determine rate information for "{name}": {traceback.format_exc().splitlines()[-1]}'
+    await bot.say(msg)
+
+@bot.command()
+async def target(target: str, name: str):
+    '''Gets the distance and estimate of jumps and time required to travel to a target system'''
+    try:
+        if len(split) < 4: return 'Command requires target system and commander name!'
+        cmdr = split[3]
+        system = split[2]
+        _, known = elite.get_cmdr(cmdr)
+        if not known:
+            cmdr = split[2]
+            system = split[3]
+            _, known = elite.get_cmdr(cmdr)
+        if not known: return 'Command requires target system and commander name!'
+        rate = elite.get_jump_rate(cmdr)
+        avgDist = elite.get_average_jump_distance(cmdr)
+        dist = elite.friendly_get_distance(cmdr, system)
+        jumps = math.ceil(dist/avgDist)
+        time = jumps / rate
+        msg = f'"{system}" is {dist:0.2f} ly from {cmdr}. That\'s about {jumps} jumps or {time:0.2f} hours.'
+    except:
+        msg = f'Could not process "target" command: {traceback.format_exc().splitlines()[-1]}'
+    await bot.say(msg)
+
 def get_token():
     with open('data/token.secret', 'r') as f:
         return f.readline().strip()

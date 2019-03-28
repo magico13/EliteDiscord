@@ -2,15 +2,9 @@ import traceback
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
 import matplotlib.pyplot as plt
-import operator
+
 
 import elite
-
-def extract_system_names(data):
-    names = []
-    for log in sorted(data['logs'], key=operator.itemgetter('date'), reverse=True):
-        names.append(log['system'])  # newest systems first
-    return names
 
 def normalize_coords(coords):
     sagA = {'x':25.21875, 'y':-20.90625, 'z':25899.96875}
@@ -51,7 +45,7 @@ def plot_route(cmdr, color, a0, a1, a2, label=False):
     xList = []
     yList = []
     zList = []
-    names = extract_system_names(elite.get_cmdr_flight_log(cmdr))
+    names = elite.extract_system_names_from_flight_log(elite.get_cmdr_flight_log(cmdr))
     infos = elite.get_coordinates_of_systems(names)
     for name in names:
         for info in infos:

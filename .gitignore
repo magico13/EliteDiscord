@@ -105,3 +105,4 @@ venv.bak/
 
 *.secret
 *.csv
+data/fig.png

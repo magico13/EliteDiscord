@@ -4,6 +4,8 @@ import urllib
 import requests
 import html
 import math
+import operator
+from datetime import datetime
 
 apiKeys = {}
 cmdrNames = {}
@@ -198,6 +200,50 @@ def get_system_info_for_display(name):
                 msg += '{0} ({2}ls): {1:,} credits\n'.format(body['bodyName'], body['valueMax'], body['distance'])
     return msg
     
+def extract_system_names_from_flight_log(flightLog):
+    '''Takes in the results from a flight log call and extracts the system names from most recent to oldest'''
+    names = []
+    for log in sorted(flightLog['logs'], key=operator.itemgetter('date'), reverse=True):
+        names.append(log['system'])  # newest systems first
+    return names
+
+def get_jump_rate(cmdr, threshold = 7200):
+    '''Gets the jump rate for a commander in jumps per hour'''
+    logs = get_cmdr_flight_log(cmdr)
+    lastDate = None
+    jumps = 0
+    totalTime = 0
+
+    for log in logs['logs']:
+        if lastDate: 
+            timeDiff = (lastDate - datetime.strptime(log['date'], '%Y-%m-%d %H:%M:%S')).total_seconds()
+            if timeDiff < threshold:
+                jumps += 1
+                totalTime += timeDiff
+        lastDate = datetime.strptime(log['date'], '%Y-%m-%d %H:%M:%S')
+    return jumps/(totalTime/3600.0)
+
+def get_average_jump_distance(cmdr):
+    '''Gets the average jump distance for the given cmdr'''
+    logs = get_cmdr_flight_log(cmdr)
+    names = extract_system_names_from_flight_log(logs)
+    positions = get_coordinates_of_systems(names)
+    lastPos = None
+    jumps = 0
+    totalDist = 0
+
+    for name in names: #to keep correct order
+        for pos in positions:
+            if pos['name'] == name:
+                if lastPos:
+                    jumps += 1
+                    dist = get_distance(lastPos['coords'], pos['coords'])
+                    totalDist += dist
+                lastPos = pos
+                break
+    if jumps == 0: return 0
+    return totalDist / jumps
+
 def load_data():
     apiKeys.clear()
     cmdrNames.clear()
