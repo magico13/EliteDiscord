@@ -86,7 +86,7 @@ async def pois():
     """Lists all Points of Interest"""
     pois = elite.get_POIs()
     msg = 'Points of Interest:\n'
-    for name, poi in pois.items():
+    for _, poi in sorted(pois.items()):
         msg += '{0}: {1}\n'.format(poi.name, poi.system)
     await bot.say(msg)
 
