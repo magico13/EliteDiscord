@@ -1,10 +1,6 @@
-import ast
-import json
-import urllib
-import requests
-import html
 import math
 import operator
+import requests
 from datetime import datetime
 
 apiKeys = {}
@@ -54,8 +50,8 @@ def set_cmdr(user, cmdr, key=None):
         apiKeys[user] = key
     save_data()
 
-def get_cmdr(potential):
-    potential = potential.strip('@')
+def get_cmdr(potential: str):
+    potential = potential.strip().strip('@<>')
     cmdr = get_cmdr_for_user(potential)
     if cmdr:
         #in this case they passed a user
@@ -113,8 +109,8 @@ def friendly_get_coords(loc):
     if poi:
         return poi
 
-    #check if other is another cmdr
-    cmdr2, known = get_cmdr(loc)
+    #check if is a cmdr
+    cmdr, known = get_cmdr(loc)
     if not known:
         #Check if it's a system name then
         system = get_system_coordinates(loc)
@@ -122,9 +118,9 @@ def friendly_get_coords(loc):
             return system
             
     #try to get distance for cmdr
-    cmdrSystem = get_cmdr_system(cmdr2, True)
-    if 'coordinates' in cmdrSystem:
-        return cmdrSystem['coordinates']
+    cmdr_system = get_cmdr_system(cmdr, True)
+    if 'coordinates' in cmdr_system:
+        return cmdr_system['coordinates']
     
     #No idea what it is, sorry
     return None
@@ -150,6 +146,7 @@ def get_system_info_for_display(name):
     
     bodiesInfo = get_bodies_in_system(systemName)
     stationInfo = get_stations_in_system(systemName)
+    fleetCarriers = get_fleet_carriers_in_system(systemName)
     trafficInfo = get_traffic_in_system(systemName)
     deathInfo = get_deaths_in_system(systemName)
     scanInfo = get_system_value(systemName)
@@ -171,19 +168,23 @@ def get_system_info_for_display(name):
     if 'bodies' in bodiesInfo and bodiesInfo['bodies']:
         msg += '{0} known bodies in system.\n'.format(len(bodiesInfo['bodies']))
         
-    if 'stations' in stationInfo and stationInfo['stations']:
-        count = len(stationInfo['stations'])
-        msg += '{0} stations in system.'.format(count)
+    if stationInfo:
+        count = len(stationInfo)
+        msg += '{0} stations/settlements in system.'.format(count)
         if count > 0:
             closest = 99999999999
             closestName = ''
-            for station in stationInfo['stations']:
+            for station in stationInfo:
                 if station['distanceToArrival'] < closest:
                     closest = station['distanceToArrival']
                     closestName = station['name']
             msg += ' Closest is {0} ({1} ls)'.format(closestName, round(closest, 2))
             msg += '\n'
     
+    if fleetCarriers:
+        count = len(fleetCarriers)
+        msg += f'{count} fleet carriers in system.\n'
+
     if 'traffic' in trafficInfo and 'deaths' in deathInfo and trafficInfo['traffic'] and deathInfo['deaths']:
         msg += '{0}/{1} CMDRs died in the system in the last 7 days.\n'.format(deathInfo['deaths']['week'], trafficInfo['traffic']['week'])
     
@@ -203,6 +204,7 @@ def get_system_info_for_display(name):
 def extract_system_names_from_flight_log(flightLog):
     '''Takes in the results from a flight log call and extracts the system names from most recent to oldest'''
     names = []
+    if not flightLog or 'logs' not in flightLog: return names
     for log in sorted(flightLog['logs'], key=operator.itemgetter('date'), reverse=True):
         names.append(log['system'])  # newest systems first
     return names
@@ -247,35 +249,41 @@ def get_average_jump_distance(cmdr):
 def load_data():
     apiKeys.clear()
     cmdrNames.clear()
-    with open('data/ed_cmdr.csv', 'r') as f:
-        for line in f:
-            split = line.split(',')
-            if (len(split) < 2 or len(split) > 3):
-                print('Encountered invalid data "{0}"'.format(line))
-                continue
-            user = split[0].strip()
-            cmdr = split[1].strip()
-            cmdrNames[user] = cmdr
-            if (len(split) == 3): 
-                key = split[2].strip()
-                if key and key != '':
-                    apiKeys[user] = key
+    try:
+        with open('data/ed_cmdr.csv', 'r') as f:
+            for line in f:
+                split = line.split(',')
+                if (len(split) < 2 or len(split) > 3):
+                    print('Encountered invalid data "{0}"'.format(line))
+                    continue
+                user = split[0].strip()
+                cmdr = split[1].strip()
+                cmdrNames[user] = cmdr
+                if (len(split) == 3): 
+                    key = split[2].strip()
+                    if key and key != '':
+                        apiKeys[user] = key
+    except FileNotFoundError:
+        print('No data file found, starting with empty data')
     print('Loaded {0} commanders and {1} api keys'.format(len(cmdrNames), len(apiKeys)))
     pointsOfInterest.clear()
-    with open('data/ed_poi.csv', 'r') as f:
-        for line in f:
-            split = line.split(',')
-            if (len(split) != 5):
-                print('Encountered invalid data "{0}"'.format(line))
-                continue
-            name = split[0].strip()
-            system = split[1].strip()
-            x = split[2].strip()
-            y = split[3].strip()
-            z = split[4].strip()
-            coords = {'x': x, 'y': y, 'z': z}
-            poi = PointOfInterest(name, system, coords)
-            pointsOfInterest[name] = poi
+    try:
+        with open('data/ed_poi.csv', 'r') as f:
+            for line in f:
+                split = line.split(',')
+                if (len(split) != 5):
+                    print('Encountered invalid data "{0}"'.format(line))
+                    continue
+                name = split[0].strip()
+                system = split[1].strip()
+                x = split[2].strip()
+                y = split[3].strip()
+                z = split[4].strip()
+                coords = {'x': x, 'y': y, 'z': z}
+                poi = PointOfInterest(name, system, coords)
+                pointsOfInterest[name] = poi
+    except FileNotFoundError:
+        print('No points of interest file found, starting with empty data')
     print('Loaded {0} points of interest.'.format(len(pointsOfInterest)))
 
 def save_data():
@@ -299,26 +307,25 @@ def get_edsm(api, endpoint, params=None):
         url += '{0}-v1/{1}'.format(api, endpoint)
     else:
         url += 'v1/{0}'.format(endpoint)
-    if (len(params) > 0):
-        url += '?'
-        for p, v in params.items():
-            if isinstance(v, list):
-                fragment = ''
-                for val in v:
-                    mini = '{0}={1}'.format(p, val)
-                    fragment += html.escape(mini) + '&'
-                fragment = fragment[:-1]
-            else:
-                fragment = '{0}={1}'.format(p, v)
-                fragment = html.escape(fragment)
-            url += fragment + '&'
-    url = url[:-1]
-    url = url.replace(' ', '%20')
+    # if (len(params) > 0):
+    #     url += '?'
+    #     for p, v in params.items():
+    #         if isinstance(v, list):
+    #             fragment = ''
+    #             for val in v:
+    #                 mini = '{0}={1}'.format(p, val)
+    #                 fragment += html.escape(mini) + '&'
+    #             fragment = fragment[:-1]
+    #         else:
+    #             fragment = '{0}={1}'.format(p, v)
+    #             fragment = html.escape(fragment)
+    #         url += fragment + '&'
+    # url = url[:-1]
+    # url = url.replace(' ', '%20')
     if debug: print(url)
-    request = urllib.request.Request(url)
-    respString = urllib.request.urlopen(request).read().decode('utf-8')
-    response = json.loads(respString)
-    if debug: print(response)
+    response_raw = requests.get(url, params=params)
+    if debug: print(response_raw)
+    response = response_raw.json()
     return response
 
 def get_edsm_with_cmdr(api, endpoint, potential, params=None):
@@ -434,18 +441,35 @@ def get_bodies_in_system(systemName):
         if 'msg' in bodies: print(bodies['msg'])
         return None
         
-def get_stations_in_system(systemName):
+def get_stations_in_system(systemName, include_fleet_carriers=False):
     api = 'system'
     endpoint = 'stations'
     params = {'systemName': systemName}
     stations = get_edsm(api, endpoint, params)
     if stations and 'stations' in stations:
-        return stations
+        stations_filtered = stations['stations']
+        if not include_fleet_carriers:
+            stations_filtered = [station for station in stations_filtered if station['type'] != 'Fleet Carrier']
+        return stations_filtered
     else:
         print('Could not find stations for system {0}'.format(systemName))
         if 'msg' in stations: print(stations['msg'])
         return None
-        
+
+def get_fleet_carriers_in_system(systemName):
+    api = 'system'
+    endpoint = 'stations'
+    params = {'systemName': systemName}
+    stations = get_edsm(api, endpoint, params)
+    if stations and 'stations' in stations:
+        stations_filtered = stations['stations']
+        stations_filtered = [station for station in stations_filtered if station['type'] == 'Fleet Carrier']
+        return stations_filtered
+    else:
+        print('Could not find fleet carriers for system {0}'.format(systemName))
+        if 'msg' in stations: print(stations['msg'])
+        return None
+
 def get_traffic_in_system(systemName):
     api = 'system'
     endpoint = 'traffic'
@@ -517,11 +541,11 @@ def get_encoded_data(cmdr):
 def get_cmdr_flight_log(cmdr, startDate = None, endDate = None):
     '''Gets the flight log for a user'''
     latest = get_cmdr_system(cmdr)
-    if not latest or not 'system' in latest: return None
+    if not latest or 'system' not in latest: return None
     key = cmdr+latest['system']
     if not startDate and not endDate:
         if key in flightLogCache:
-            print('Using cached flight data for CMDR {}'.format(cmdr))
+            print('Using cached flight data for user {}'.format(cmdr))
             return flightLogCache[key]
     api = 'logs'
     endpoint = 'get-logs'

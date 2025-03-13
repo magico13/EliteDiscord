@@ -137,9 +137,9 @@ def parse_items_list(items):
     systems = []
     for item in items:
         item = item.strip()
-        _, known = elite.get_cmdr(item)
+        cmdr, known = elite.get_cmdr(item)
         if known: #is a known commander
-            cmdrs.append(item)
+            cmdrs.append(cmdr)
         else: #might be a poi, system, or an unknown cmdr
             poi = elite.get_POI_coords(item)
             if poi:
@@ -155,7 +155,7 @@ def parse_items_list(items):
                     #unknown, just skip it
     return cmdrs, systems
 
-def parse_and_plot(command): #!ed map mmarvin, DWStation, Sol, Beagle Point zoomed label 3d
+def parse_and_plot(command): #!ed map magico13, DWStation, Sol, Beagle Point zoomed label 3d
     split = command.split()
     zoom = False
     label = False

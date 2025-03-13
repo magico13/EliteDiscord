@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-import random
 import re
 import traceback
 import math
@@ -8,12 +7,14 @@ import math
 import elite
 import elite_mapper
 
-description = '''Elite:Dangerous connector bot.'''
+description = '''Elite: Dangerous connector bot.'''
 
 token = ''
 uid_regex = re.compile(r'<.*?(\d+)>')
 
-bot = commands.Bot(command_prefix='!ed ', description=description)
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix='!ed ', description=description, intents=intents)
 
 @bot.event
 async def on_ready():
@@ -23,19 +24,18 @@ async def on_ready():
     print('------')
     elite.load_data()
 
-@bot.command()
-async def locate(name: str):
+@bot.command(name='locate')
+async def locate(ctx: commands.Context, name = None):
     """Gets the location of a commander (alt for 'location')"""
-    name = get_uid(name)
-    await bot.say(locate_handler(name))
+    await ctx.send(locate_handler(ctx, name))
 
-@bot.command()
-async def location(name: str):
+@bot.command(name='location')
+async def location(ctx: commands.Context, name = None):
     """Gets the location of a commander (alt for 'locate')"""
-    await bot.say(locate_handler(name))
+    await ctx.send(locate_handler(ctx, name))
 
-def locate_handler(name: str):
-    cmdr = get_uid(name)
+def locate_handler(ctx: commands.Context, name):
+    cmdr = get_uid(name or str(ctx.message.author.id))
     loc = elite.get_cmdr_system_name(cmdr)
     cmdrName, _ = elite.get_cmdr(cmdr)
     if not loc or loc == 'None':
@@ -47,18 +47,18 @@ def get_uid(name):
     if not match: return name
     return match.group(1)
 
-@bot.command(pass_context=True)
-async def register(ctx, cmdrName: str, key=None):
+@bot.command(name='register', pass_context=True)
+async def register(ctx: commands.Context, cmdrName: str, key=None):
     """Links a discord username and a CMDR (and EDSM API key)"""
     user = str(ctx.message.author.id)
     elite.set_cmdr(user, cmdrName, key)
     msg = 'o7 Greetings CMDR {0}! I\'ve got you registered with "<@{1}>"=="{0}".'.format(cmdrName, user)
     if key:
         msg += ' I advise deleting your post so your API Key doesn\'t ~~get intercepted by Thargoids~~ persist in the chat logs.'
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command()
-async def poi(poiName: str, poiLocation = None):
+@bot.command(name='poi')
+async def poi(ctx: commands.Context, poiName: str, poiLocation = None):
     """Displays or creates/updates a Point of Interest"""
     msg = 'Could not process command :('
     if poiLocation and poiLocation != '':
@@ -79,46 +79,46 @@ async def poi(poiName: str, poiLocation = None):
             msg = '{0} ({1}) is located at {2}'.format(poi.name, poi.system, poi.coords)
         else:
             msg = '"{0}" is not a known point of interest'.format(poiName)
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command()
-async def pois():
+@bot.command(name='pois')
+async def pois(ctx):
     """Lists all Points of Interest"""
     pois = elite.get_POIs()
     msg = 'Points of Interest:\n'
     for _, poi in sorted(pois.items()):
         msg += '{0}: {1}\n'.format(poi.name, poi.system)
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command()
-async def distance(item1: str, item2: str):
+@bot.command(name='distance')
+async def distance(ctx: commands.Context, item1: str, item2: str):
     """Gets the distance between two items (CMDR, PoI, System)"""
     uid1 = get_uid(item1)
     uid2 = get_uid(item2)
     dist = elite.friendly_get_distance(uid1, uid2)
     dist = round(dist, 2)
     msg = '{0} is {1} LY from {2}'.format(item2, dist, item1)
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command(pass_context=True)
-async def info(ctx, system: str):
+@bot.command(name='info', pass_context=True)
+async def info(ctx: commands.Context, system: str):
     """Gets detailed information on a system (alt for 'system')"""
-    await bot.send_typing(ctx.message.channel)
-    await bot.say(info_handler(system))
+    await ctx.typing()
+    await ctx.send(info_handler(system))
     
-@bot.command(pass_context=True)
-async def system(ctx, system: str):
+@bot.command(name='system', pass_context=True)
+async def system(ctx: commands.Context, system: str):
     """Gets detailed information on a system (alt for 'info')"""
-    await bot.send_typing(ctx.message.channel)
-    await bot.say(info_handler(system))
+    await ctx.typing()
+    await ctx.send(info_handler(system))
 
 def info_handler(system):
     return elite.get_system_info_for_display(system)
 
-@bot.command(pass_context = True)
-async def radius(ctx, system: str, radius: float, minRadius = 0.0):
+@bot.command(name='radius', pass_context=True)
+async def radius(ctx: commands.Context, system: str, radius: float, minRadius = 0.0):
     """Returns systems within a radius around a system"""
-    await bot.send_typing(ctx.message.channel)
+    await ctx.typing()
     coords = elite.friendly_get_coords(system)
     systems = elite.get_systems_in_radius(coords, radius, minRadius)
     if systems:
@@ -137,44 +137,48 @@ async def radius(ctx, system: str, radius: float, minRadius = 0.0):
             msg += '\n'
     else:
         msg = 'No systems in range'
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command(pass_context=True)
-async def balance(ctx, name: str):
+@bot.command(name='balance', pass_context=True)
+async def balance(ctx: commands.Context, name = None):
     '''Gets credit balance of cmdr name'''
-    await bot.send_typing(ctx.message.channel)
-    cmdr = get_uid(name)
+    await ctx.typing()
+    cmdr = get_uid(name or str(ctx.message.author.id))
     credits = elite.get_credits(cmdr)
     msg = '{0} '.format(name)
     if credits and credits['msgnum'] == 100:
         msg += 'has {:,} credits.'.format(credits['credits'][0]['balance'])
     else:
         msg += 'could not be found'
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command(pass_context=True)
-async def ranks(ctx, name: str):
+@bot.command(name='ranks', pass_context=True)
+async def ranks(ctx: commands.Context, name = None):
     '''Gets all ranks of cmdr name'''
-    await bot.send_typing(ctx.message.channel)
-    cmdr = get_uid(name)
+    await ctx.typing()
+    name = get_uid(name or str(ctx.message.author.id))
+    cmdr, _ = elite.get_cmdr(name)
     ranks = elite.get_ranks(cmdr)
-    msg = '__{0}__\n'.format(name)
+    msg = '__{0}__\n'.format(cmdr)
+    display_format = '{0} : {1} ({2}%)\n'
     if ranks and ranks['msgnum'] == 100:
-        msg += '{0} : {1} ({2}%)\n'.format('Combat', ranks['ranksVerbose']['Combat'], ranks['progress']['Combat'])
-        msg += '{0} : {1} ({2}%)\n'.format('Trade', ranks['ranksVerbose']['Trade'], ranks['progress']['Trade'])
-        msg += '{0} : {1} ({2}%)\n'.format('Explore', ranks['ranksVerbose']['Explore'], ranks['progress']['Explore'])
-        msg += '{0} : {1} ({2}%)\n'.format('CQC', ranks['ranksVerbose']['CQC'], ranks['progress']['CQC'])
-        msg += '{0} : {1} ({2}%)\n'.format('Federation', ranks['ranksVerbose']['Federation'], ranks['progress']['Federation'])
-        msg += '{0} : {1} ({2}%)\n'.format('Empire', ranks['ranksVerbose']['Empire'], ranks['progress']['Empire'])
+        msg += display_format.format('Combat', ranks['ranksVerbose']['Combat'], ranks['progress']['Combat'])
+        msg += display_format.format('Trade', ranks['ranksVerbose']['Trade'], ranks['progress']['Trade'])
+        msg += display_format.format('Exploration', ranks['ranksVerbose']['Explore'], ranks['progress']['Explore'])
+        msg += display_format.format('Soldier', ranks['ranksVerbose']['Soldier'], ranks['progress']['Soldier'])
+        msg += display_format.format('Exobiologist', ranks['ranksVerbose']['Exobiologist'], ranks['progress']['Exobiologist'])
+        msg += display_format.format('CQC', ranks['ranksVerbose']['CQC'], ranks['progress']['CQC'])
+        msg += display_format.format('Federation', ranks['ranksVerbose']['Federation'], ranks['progress']['Federation'])
+        msg += display_format.format('Empire', ranks['ranksVerbose']['Empire'], ranks['progress']['Empire'])
     else:
         msg = 'No ranks found for "{0}"'.format(name)
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command(pass_context=True)
-async def materials(ctx, name: str):
+@bot.command(name='materials', pass_context=True)
+async def materials(ctx: commands.Context, name = None):
     '''Gets all materials for the cmdr'''
-    await bot.send_typing(ctx.message.channel)
-    cmdr = get_uid(name)
+    await ctx.typing()
+    cmdr = get_uid(name or str(ctx.message.author.id))
     materials = elite.get_materials(cmdr)
     msg = '_{0} materials_\n'.format(name)
     if materials and materials['msgnum'] == 100:
@@ -184,13 +188,13 @@ async def materials(ctx, name: str):
                 msg += '{0} : {1}\n'.format(mats['name'], mats['qty'])
     else:
         msg = 'No materials found for "{0}"'.format(name)
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command(pass_context=True)
-async def cargo(ctx, name: str):
+@bot.command(name='cargo', pass_context=True)
+async def cargo(ctx: commands.Context, name = None):
     '''Gets all cargo for the cmdr'''
-    await bot.send_typing(ctx.message.channel)
-    cmdr = get_uid(name)
+    await ctx.typing()
+    cmdr = get_uid(name or str(ctx.message.author.id))
     cargo = elite.get_cargo(cmdr)
     msg = '_{0} cargo_\n'.format(name)
     cargoNum = 0
@@ -207,13 +211,13 @@ async def cargo(ctx, name: str):
     
     if cargoNum == 0:
         msg += 'No cargo!'
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command(pass_context=True)
-async def data(ctx, name: str):
+@bot.command(name='data', pass_context=True)
+async def data(ctx: commands.Context, name = None):
     '''Gets all encoded data for the cmdr'''
-    await bot.send_typing(ctx.message.channel)
-    cmdr = get_uid(name)
+    await ctx.typing()
+    cmdr = get_uid(name or str(ctx.message.author.id))
     encodedData = elite.get_encoded_data(cmdr)
     msg = '_{0} encoded data_\n'.format(name)
     if encodedData and encodedData['msgnum'] == 100:
@@ -223,45 +227,46 @@ async def data(ctx, name: str):
                 msg += '{0} : {1}\n'.format(data['name'], data['qty'])
     else:
         msg = 'No encoded data found for "{0}"'.format(name)
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command(pass_context=True)
+@bot.command(name='map', pass_context=True) 
 async def map(ctx):
 	'''Returns a map of the requested items'''
-	await bot.type()
+	await ctx.typing()
 	elite_mapper.parse_and_plot(ctx.message.content)
 	with open('data/fig.png', 'rb') as f:
-		await bot.upload(f)
+		await ctx.send(file=discord.File(f, 'fig.png'))
 	
-@bot.command()
-async def rate(name: str):
+@bot.command(name='rate')
+async def rate(ctx: commands.Context, name = None):
     '''Gets the jump rate, average jump distance, and ly per hour for a commander'''
-    cmdr = get_uid(name)
+    name = get_uid(name or str(ctx.message.author.id))
     try:
+        cmdr, _ = elite.get_cmdr(name)
         rate = elite.get_jump_rate(cmdr)
         dist = elite.get_average_jump_distance(cmdr)
         distRate = rate*dist
-        msg = f'{name} jumps {rate:0.2f} times per hour at an average jump distance of {dist:0.2f} ly for a rate of {distRate:0.2f} ly per hour.'
+        msg = f'{cmdr} jumps {rate:0.2f} times per hour at an average jump distance of {dist:0.2f} ly for a rate of {distRate:0.2f} ly per hour.'
     except:
         msg = f'Could not determine rate information for "{name}": {traceback.format_exc().splitlines()[-1]}'
-    await bot.say(msg)
+    await ctx.send(msg)
 
-@bot.command()
-async def target(system: str, name: str):
+@bot.command(name='target')
+async def target(ctx: commands.Context, system: str, name = None):
     '''Gets the distance and estimate of jumps and time required to travel to a target system'''
-    cmdr = get_uid(name)
+    name = get_uid(name or str(ctx.message.author.id))
     try:
-        _, known = elite.get_cmdr(cmdr)
+        cmdr, known = elite.get_cmdr(name)
         if not known: return 'Command requires target system and commander name!'
         rate = elite.get_jump_rate(cmdr)
         avgDist = elite.get_average_jump_distance(cmdr)
         dist = elite.friendly_get_distance(cmdr, system)
         jumps = math.ceil(dist/avgDist)
         time = jumps / rate
-        msg = f'"{system}" is {dist:0.2f} ly from {name}. That\'s about {jumps} jumps or {time:0.2f} hours.'
+        msg = f'"{system}" is {dist:0.2f} ly from {cmdr}. That\'s about {jumps} jumps or {time:0.2f} hours.'
     except:
         msg = f'Could not process "target" command: {traceback.format_exc().splitlines()[-1]}'
-    await bot.say(msg)
+    await ctx.send(msg)
 
 def get_token():
     with open('data/token.secret', 'r') as f:
